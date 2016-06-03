@@ -156,22 +156,7 @@ def backup_prepare(vms_list=None, exclude_list=None,
         {"name": "size", "width": 12}
     ]
 
-    # Display the header
-    s = ""
-    for f in fields_to_display:
-        fmt = "{{0:-^{0}}}-+".format(f["width"] + 1)
-        s += fmt.format('-')
-    print_callback(s)
-    s = ""
-    for f in fields_to_display:
-        fmt = "{{0:>{0}}} |".format(f["width"] + 1)
-        s += fmt.format(f["name"])
-    print_callback(s)
-    s = ""
-    for f in fields_to_display:
-        fmt = "{{0:-^{0}}}-+".format(f["width"] + 1)
-        s += fmt.format('-')
-    print_callback(s)
+    _print_backup_table_header(print_callback, fields_to_display)
 
     files_to_backup_index = 0
     for vm in vms_list:
@@ -307,6 +292,43 @@ def backup_prepare(vms_list=None, exclude_list=None,
     for f in files_to_backup:
         total_backup_sz += f["size"]
 
+    _print_backup_table_footer(print_callback, fields_to_display,
+                               total_backup_sz)
+
+    vms_not_for_backup = [vm.name for vm in qvm_collection.values()
+                          if not vm.backup_content]
+    print_callback("VMs not selected for backup:\n%s" % "\n".join(sorted(
+        vms_not_for_backup)))
+
+    if there_are_running_vms:
+        raise QubesException("Please shutdown all VMs before proceeding.")
+
+    for fileinfo in files_to_backup:
+        assert len(fileinfo["subdir"]) == 0 or fileinfo["subdir"][-1] == '/', \
+            "'subdir' must ends with a '/': %s" % unicode(fileinfo)
+
+    return files_to_backup
+
+
+def _print_backup_table_header(print_callback, fields_to_display):
+    s = ""
+    for f in fields_to_display:
+        fmt = "{{0:-^{0}}}-+".format(f["width"] + 1)
+        s += fmt.format('-')
+    print_callback(s)
+    s = ""
+    for f in fields_to_display:
+        fmt = "{{0:>{0}}} |".format(f["width"] + 1)
+        s += fmt.format(f["name"])
+    print_callback(s)
+    s = ""
+    for f in fields_to_display:
+        fmt = "{{0:-^{0}}}-+".format(f["width"] + 1)
+        s += fmt.format('-')
+    print_callback(s)
+
+
+def _print_backup_table_footer(print_callback, fields_to_display, total_backup_sz):
     s = ""
     for f in fields_to_display:
         fmt = "{{0:-^{0}}}-+".format(f["width"] + 1)
@@ -327,20 +349,6 @@ def backup_prepare(vms_list=None, exclude_list=None,
         fmt = "{{0:-^{0}}}-+".format(f["width"] + 1)
         s += fmt.format('-')
     print_callback(s)
-
-    vms_not_for_backup = [vm.name for vm in qvm_collection.values()
-                          if not vm.backup_content]
-    print_callback("VMs not selected for backup:\n%s" % "\n".join(sorted(
-        vms_not_for_backup)))
-
-    if there_are_running_vms:
-        raise QubesException("Please shutdown all VMs before proceeding.")
-
-    for fileinfo in files_to_backup:
-        assert len(fileinfo["subdir"]) == 0 or fileinfo["subdir"][-1] == '/', \
-            "'subdir' must ends with a '/': %s" % unicode(fileinfo)
-
-    return files_to_backup
 
 
 def prepare_dom0_backup(vm, print_callback, fields_to_display):
