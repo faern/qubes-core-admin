@@ -131,22 +131,26 @@ def backup_prepare(vms_list=None, exclude_list=None,
     qvm_collection.load()
 
     if vms_list is None:
+        # First select all VMs marked for backup and not in exclude_list
         selected_vms = [vm for vm in qvm_collection.values() if
-                        vm.include_in_backups]
+                        vm.include_in_backups and vm.name not in exclude_list]
         appvms_to_backup = [vm for vm in selected_vms if
                             vm.is_appvm() and not vm.internal]
         netvms_to_backup = [vm for vm in selected_vms if
                             vm.is_netvm() and vm.qid != 0]
         template_vms_to_backup = [vm for vm in selected_vms if
                                   vm.is_template()]
-        dom0 = [qvm_collection[0]]
+        backup_dom0 = True
 
         vms_list = appvms_to_backup + netvms_to_backup + \
-            template_vms_to_backup + dom0
-
-    # Apply exclude list
-    if exclude_list:
+            template_vms_to_backup
+    else:
+        # Apply exclude list
         vms_list = [vm for vm in vms_list if vm.name not in exclude_list]
+        # Check if dom0 should be backed up
+        backup_dom0 = 0 in [vm.qid for vm in vms_list]
+        # Filter out dom0 since it's taken care of on the side
+        vms_list = [vm for vm in vms_list if vm.qid != 0]
 
     there_are_running_vms = False
 
@@ -162,9 +166,6 @@ def backup_prepare(vms_list=None, exclude_list=None,
     for vm in vms_list:
         if vm.is_template():
             # handle templates later
-            continue
-        if vm.qid == 0:
-            # handle dom0 later
             continue
 
         if hide_vm_names:
@@ -230,9 +231,7 @@ def backup_prepare(vms_list=None, exclude_list=None,
         if not vm.is_template():
             # already handled
             continue
-        if vm.qid == 0:
-            # handle dom0 later
-            continue
+
         vm_sz = vm.get_disk_utilization()
         if hide_vm_names:
             template_subdir = 'vm%d/' % vm.qid
@@ -266,9 +265,6 @@ def backup_prepare(vms_list=None, exclude_list=None,
     vms_for_backup_qid = [vm.qid for vm in vms_list]
     for vm in qvm_collection.values():
         vm.backup_content = False
-        if vm.qid == 0:
-            # handle dom0 later
-            continue
 
         if vm.qid in vms_for_backup_qid:
             vm.backup_content = True
@@ -279,10 +275,10 @@ def backup_prepare(vms_list=None, exclude_list=None,
                 vm.backup_path = os.path.relpath(vm.dir_path,
                                                  system_path["qubes_base_dir"])
 
-    # Dom0 user home
-    if 0 in vms_for_backup_qid:
+    if backup_dom0:
         dom0 = qvm_collection[0]
-        prepare_dom0_backup(dom0, print_callback, fields_to_display)
+        files_to_backup += _prepare_dom0_backup(dom0, print_callback,
+                                                fields_to_display)
 
     qvm_collection.save()
     # FIXME: should be after backup completed
@@ -351,7 +347,7 @@ def _print_backup_table_footer(print_callback, fields_to_display, total_backup_s
     print_callback(s)
 
 
-def prepare_dom0_backup(vm, print_callback, fields_to_display):
+def _prepare_dom0_backup(vm, print_callback, fields_to_display):
     files_to_backup = []
     local_user = grp.getgrnam('qubes').gr_mem[0]
     home_dir = pwd.getpwnam(local_user).pw_dir
@@ -380,6 +376,7 @@ def prepare_dom0_backup(vm, print_callback, fields_to_display):
     s += fmt.format(size_to_human(home_sz))
 
     print_callback(s)
+    return files_to_backup
 
 
 class SendWorker(Process):
