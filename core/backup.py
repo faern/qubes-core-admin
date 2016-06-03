@@ -144,10 +144,9 @@ def backup_prepare(vms_list=None, exclude_list=None,
         vms_list = appvms_to_backup + netvms_to_backup + \
             template_vms_to_backup + dom0
 
-    vms_for_backup = vms_list
     # Apply exclude list
     if exclude_list:
-        vms_for_backup = [vm for vm in vms_list if vm.name not in exclude_list]
+        vms_list = [vm for vm in vms_list if vm.name not in exclude_list]
 
     there_are_running_vms = False
 
@@ -175,7 +174,7 @@ def backup_prepare(vms_list=None, exclude_list=None,
     print_callback(s)
 
     files_to_backup_index = 0
-    for vm in vms_for_backup:
+    for vm in vms_list:
         if vm.is_template():
             # handle templates later
             continue
@@ -242,7 +241,7 @@ def backup_prepare(vms_list=None, exclude_list=None,
 
         print_callback(s)
 
-    for vm in vms_for_backup:
+    for vm in vms_list:
         if not vm.is_template():
             # already handled
             continue
@@ -279,7 +278,7 @@ def backup_prepare(vms_list=None, exclude_list=None,
         print_callback(s)
 
     # Initialize backup flag on all VMs
-    vms_for_backup_qid = [vm.qid for vm in vms_for_backup]
+    vms_for_backup_qid = [vm.qid for vm in vms_list]
     for vm in qvm_collection.values():
         vm.backup_content = False
         if vm.qid == 0:
