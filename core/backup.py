@@ -296,34 +296,8 @@ def backup_prepare(vms_list=None, exclude_list=None,
 
     # Dom0 user home
     if 0 in vms_for_backup_qid:
-        local_user = grp.getgrnam('qubes').gr_mem[0]
-        home_dir = pwd.getpwnam(local_user).pw_dir
-        # Home dir should have only user-owned files, so fix it now to prevent
-        # permissions problems - some root-owned files can left after
-        # 'sudo bash' and similar commands
-        subprocess.check_call(['sudo', 'chown', '-R', local_user, home_dir])
-
-        home_sz = get_disk_usage(home_dir)
-        home_to_backup = [
-            {"path": home_dir, "size": home_sz, "subdir": 'dom0-home/'}]
-        files_to_backup += home_to_backup
-
-        vm = qvm_collection[0]
-        vm.backup_content = True
-        vm.backup_size = home_sz
-        vm.backup_path = os.path.join('dom0-home', os.path.basename(home_dir))
-
-        s = ""
-        fmt = "{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
-        s += fmt.format('Dom0')
-
-        fmt = "{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
-        s += fmt.format("User home")
-
-        fmt = "{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
-        s += fmt.format(size_to_human(home_sz))
-
-        print_callback(s)
+        dom0 = qvm_collection[0]
+        prepare_dom0_backup(dom0, print_callback, fields_to_display)
 
     qvm_collection.save()
     # FIXME: should be after backup completed
@@ -367,6 +341,37 @@ def backup_prepare(vms_list=None, exclude_list=None,
             "'subdir' must ends with a '/': %s" % unicode(fileinfo)
 
     return files_to_backup
+
+
+def prepare_dom0_backup(vm, print_callback, fields_to_display):
+    files_to_backup = []
+    local_user = grp.getgrnam('qubes').gr_mem[0]
+    home_dir = pwd.getpwnam(local_user).pw_dir
+    # Home dir should have only user-owned files, so fix it now to prevent
+    # permissions problems - some root-owned files can left after
+    # 'sudo bash' and similar commands
+    subprocess.check_call(['sudo', 'chown', '-R', local_user, home_dir])
+
+    home_sz = get_disk_usage(home_dir)
+    home_to_backup = [
+        {"path": home_dir, "size": home_sz, "subdir": 'dom0-home/'}]
+    files_to_backup += home_to_backup
+
+    vm.backup_content = True
+    vm.backup_size = home_sz
+    vm.backup_path = os.path.join('dom0-home', os.path.basename(home_dir))
+
+    s = ""
+    fmt = "{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
+    s += fmt.format('Dom0')
+
+    fmt = "{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
+    s += fmt.format("User home")
+
+    fmt = "{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
+    s += fmt.format(size_to_human(home_sz))
+
+    print_callback(s)
 
 
 class SendWorker(Process):
