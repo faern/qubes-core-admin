@@ -262,11 +262,10 @@ def backup_prepare(vms_list=None, exclude_list=None,
         print_callback(s)
 
     # Initialize backup flag on all VMs
-    vms_for_backup_qid = [vm.qid for vm in vms_list]
     for vm in qvm_collection.values():
         vm.backup_content = False
 
-        if vm.qid in vms_for_backup_qid:
+        if vm in vms_list:
             vm.backup_content = True
             vm.backup_size = vm.get_disk_utilization()
             if hide_vm_names:
