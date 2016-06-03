@@ -131,18 +131,18 @@ def backup_prepare(vms_list=None, exclude_list=None,
     qvm_collection.load()
 
     if vms_list is None:
-        all_vms = [vm for vm in qvm_collection.values()]
-        selected_vms = [vm for vm in all_vms if vm.include_in_backups]
+        selected_vms = [vm for vm in qvm_collection.values() if
+                        vm.include_in_backups]
         appvms_to_backup = [vm for vm in selected_vms if
                             vm.is_appvm() and not vm.internal]
         netvms_to_backup = [vm for vm in selected_vms if
-                            vm.is_netvm() and not vm.qid == 0]
-        template_vms_worth_backingup = [vm for vm in selected_vms if (
-            vm.is_template() and vm.include_in_backups)]
+                            vm.is_netvm() and vm.qid != 0]
+        template_vms_to_backup = [vm for vm in selected_vms if
+                                  vm.is_template()]
         dom0 = [qvm_collection[0]]
 
         vms_list = appvms_to_backup + netvms_to_backup + \
-            template_vms_worth_backingup + dom0
+            template_vms_to_backup + dom0
 
     vms_for_backup = vms_list
     # Apply exclude list
