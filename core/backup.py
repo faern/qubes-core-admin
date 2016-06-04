@@ -152,8 +152,6 @@ def backup_prepare(vms_list=None, exclude_list=None,
         # Filter out dom0 since it's taken care of on the side
         vms_list = [vm for vm in vms_list if vm.qid != 0]
 
-    there_are_running_vms = False
-
     fields_to_display = [
         {"name": "VM", "width": 16},
         {"name": "type", "width": 12},
@@ -163,11 +161,8 @@ def backup_prepare(vms_list=None, exclude_list=None,
     _print_backup_table_header(print_callback, fields_to_display)
 
     files_to_backup_index = 0
-    for vm in vms_list:
-        if vm.is_template():
-            # handle templates later
-            continue
-
+    # Prepare non templates
+    for vm in [vm for vm in vms_list if not vm.is_template()]:
         if hide_vm_names:
             subdir = 'vm%d/' % vm.qid
         else:
@@ -223,43 +218,13 @@ def backup_prepare(vms_list=None, exclude_list=None,
         if vm.is_running():
             s += " <-- The VM is running, please shut it down before proceeding " \
                  "with the backup!"
-            there_are_running_vms = True
 
         print_callback(s)
 
-    for vm in vms_list:
-        if not vm.is_template():
-            # already handled
-            continue
-
-        vm_sz = vm.get_disk_utilization()
-        if hide_vm_names:
-            template_subdir = 'vm%d/' % vm.qid
-        else:
-            template_subdir = os.path.relpath(
-                vm.dir_path,
-                system_path["qubes_base_dir"]) + '/'
-        template_to_backup = [{"path": vm.dir_path + '/.',
-                               "size": vm_sz,
-                               "subdir": template_subdir}]
-        files_to_backup += template_to_backup
-
-        s = ""
-        fmt = "{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
-        s += fmt.format(vm.name)
-
-        fmt = "{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
-        s += fmt.format("Template VM")
-
-        fmt = "{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
-        s += fmt.format(size_to_human(vm_sz))
-
-        if vm.is_running():
-            s += " <-- The VM is running, please shut it down before proceeding " \
-                 "with the backup!"
-            there_are_running_vms = True
-
-        print_callback(s)
+    # Prepare templates
+    for vm in [vm for vm in vms_list if vm.is_template()]:
+        files_to_backup += _prepare_template_backup(
+            vm, hide_vm_names, print_callback, fields_to_display)
 
     # Initialize backup flag on all VMs
     for vm in qvm_collection.values():
@@ -295,7 +260,7 @@ def backup_prepare(vms_list=None, exclude_list=None,
     print_callback("VMs not selected for backup:\n%s" % "\n".join(sorted(
         vms_not_for_backup)))
 
-    if there_are_running_vms:
+    if [vm for vm in vms_list if vm.is_running()]:
         raise QubesException("Please shutdown all VMs before proceeding.")
 
     for fileinfo in files_to_backup:
@@ -373,6 +338,36 @@ def _prepare_dom0_backup(vm, print_callback, fields_to_display):
 
     fmt = "{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
     s += fmt.format(size_to_human(home_sz))
+
+    print_callback(s)
+    return files_to_backup
+
+
+def _prepare_template_backup(vm, hide_vm_names, print_callback, fields_to_display):
+    vm_sz = vm.get_disk_utilization()
+    if hide_vm_names:
+        template_subdir = 'vm%d/' % vm.qid
+    else:
+        template_subdir = os.path.relpath(
+            vm.dir_path,
+            system_path["qubes_base_dir"]) + '/'
+    files_to_backup = [{"path": vm.dir_path + '/.',
+                        "size": vm_sz,
+                        "subdir": template_subdir}]
+
+    s = ""
+    fmt = "{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
+    s += fmt.format(vm.name)
+
+    fmt = "{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
+    s += fmt.format("Template VM")
+
+    fmt = "{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
+    s += fmt.format(size_to_human(vm_sz))
+
+    if vm.is_running():
+        s += " <-- The VM is running, please shut it down before proceeding " \
+             "with the backup!"
 
     print_callback(s)
     return files_to_backup
