@@ -345,15 +345,6 @@ def _prepare_dom0_backup(vm, print_callback, fields_to_display):
 
 def _prepare_template_backup(vm, hide_vm_names, print_callback, fields_to_display):
     vm_sz = vm.get_disk_utilization()
-    if hide_vm_names:
-        template_subdir = 'vm%d/' % vm.qid
-    else:
-        template_subdir = os.path.relpath(
-            vm.dir_path,
-            system_path["qubes_base_dir"]) + '/'
-    files_to_backup = [{"path": vm.dir_path + '/.',
-                        "size": vm_sz,
-                        "subdir": template_subdir}]
 
     s = ""
     fmt = "{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
@@ -370,6 +361,16 @@ def _prepare_template_backup(vm, hide_vm_names, print_callback, fields_to_displa
              "with the backup!"
 
     print_callback(s)
+
+    if hide_vm_names:
+        template_subdir = 'vm%d/' % vm.qid
+    else:
+        template_subdir = os.path.relpath(
+            vm.dir_path,
+            system_path["qubes_base_dir"]) + '/'
+    files_to_backup = [{"path": vm.dir_path + '/.',
+                        "size": vm_sz,
+                        "subdir": template_subdir}]
     return files_to_backup
 
 
